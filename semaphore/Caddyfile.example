@@ -1,0 +1,12 @@
+# Copiar a "Caddyfile" y reemplazar la IP / el nombre del nodo de control.
+{
+	# Sin certificados públicos: usa la CA interna de Caddy
+	local_certs
+	# Obligatorio si se accede por IP: el navegador no envía SNI
+	default_sni 192.0.2.5
+}
+
+192.0.2.5, semaphore.example.internal {
+	tls internal
+	reverse_proxy semaphore:3000
+}

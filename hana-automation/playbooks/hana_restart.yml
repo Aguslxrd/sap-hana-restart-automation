@@ -1,0 +1,21 @@
+# Reinicio de HANA DB (el SO no se toca en este playbook)
+- name: Reinicio de SAP HANA
+  hosts: "{{ target | default('hana') }}"
+  serial: "{{ hana_serial | default(1) }}"
+  max_fail_percentage: 0
+  gather_facts: false
+  become: true
+
+  tasks:
+    - block:
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: preflight }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: check_backup }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: stop }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: start }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: notify }
+          vars: { notify_status: OK, notify_job: "Reinicio HANA" }
+      rescue:
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: notify }
+          vars: { notify_status: ERROR, notify_job: "Reinicio HANA" }
+        - ansible.builtin.fail:
+            msg: "Falló el reinicio de HANA en {{ inventory_hostname }}. Revisar el log de la ejecución."

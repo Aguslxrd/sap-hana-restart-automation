@@ -1,0 +1,67 @@
+# ------------------------------------------------------------
+# GUARDAS DE SEGURIDAD (se ejecutan antes de cualquier acción)
+# Procedimiento manual equivalente: su - <sid>adm ; ./HDB info
+# ------------------------------------------------------------
+- name: Definir variables derivadas
+  ansible.builtin.set_fact:
+    hana_sidadm: "{{ hana_sid | lower }}adm"
+
+- name: Validar variables de inventario
+  ansible.builtin.assert:
+    that:
+      - hana_sid is defined and hana_sid | length == 3
+      - hana_nr is defined and hana_nr | string | length == 2
+    fail_msg: "Definir hana_sid (3 caracteres) y hana_nr (2 dígitos, entre comillas) en el inventario"
+
+- name: Validar que el entorno esté permitido
+  ansible.builtin.assert:
+    that:
+      - hana_env is defined
+      - hana_env in hana_allowed_envs
+    fail_msg: >-
+      Entorno '{{ hana_env | default('NO DEFINIDO') }}' no permitido en {{ inventory_hostname }}.
+      Entornos habilitados: {{ hana_allowed_envs }}.
+
+- name: Validar que la IP del inventario esté en la lista permitida
+  ansible.builtin.assert:
+    that: ansible_host in hana_allowed_hosts
+    fail_msg: "{{ ansible_host }} no está en hana_allowed_hosts {{ hana_allowed_hosts }}. Abortando."
+
+- name: Leer marca de entorno del servidor
+  ansible.builtin.raw: "cat {{ hana_env_file }}"
+  register: server_env
+  changed_when: false
+  failed_when: false
+
+- name: Abortar si la marca del servidor no coincide
+  ansible.builtin.assert:
+    that:
+      - server_env.rc == 0
+      - server_env.stdout | trim == hana_env
+    fail_msg: >-
+      {{ inventory_hostname }} ({{ ansible_host }}): {{ hana_env_file }} contiene
+      '{{ server_env.stdout | default('') | trim }}' y se esperaba '{{ hana_env }}'
+      (o el archivo no existe). NO se toca el servidor.
+
+- name: Verificar si Pacemaker está activo
+  ansible.builtin.raw: systemctl is-active pacemaker
+  register: pcmk
+  changed_when: false
+  failed_when: false
+
+- name: Abortar si el host está en un cluster Pacemaker
+  ansible.builtin.assert:
+    that: pcmk.stdout | trim != "active"
+    fail_msg: "Pacemaker activo en {{ inventory_hostname }}: no se reinicia HANA con sapcontrol."
+
+- name: Estado actual de HANA (HDB info)
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'cd /usr/sap/{{ hana_sid }}/HDB{{ hana_nr }} && ./HDB info < /dev/null'"
+  register: hana_pre_info
+  changed_when: false
+  failed_when: false
+
+- name: Estado actual de HANA (sapcontrol)
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'sapcontrol -nr {{ hana_nr }} -function GetProcessList'"
+  register: hana_pre_status
+  changed_when: false
+  failed_when: hana_pre_status.rc not in [0, 3, 4]

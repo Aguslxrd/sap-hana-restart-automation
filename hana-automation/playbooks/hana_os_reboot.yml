@@ -1,0 +1,25 @@
+# Reinicio del SO: bajar HANA -> reiniciar SO -> levantar HANA -> verificar montajes
+# ESTADO: no probado en producción. Validar primero en TEST.
+- name: Reinicio de SLES con SAP HANA
+  hosts: "{{ target | default('hana') }}"
+  serial: "{{ hana_serial | default(1) }}"
+  max_fail_percentage: 0
+  gather_facts: false
+  become: true
+
+  tasks:
+    - block:
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: preflight }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: check_backup }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: stop }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: reboot }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: wait_sapstartsrv }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: start }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: mounts }
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: notify }
+          vars: { notify_status: OK, notify_job: "Reinicio SLES+HANA" }
+      rescue:
+        - ansible.builtin.include_role: { name: hana_ops, tasks_from: notify }
+          vars: { notify_status: ERROR, notify_job: "Reinicio SLES+HANA" }
+        - ansible.builtin.fail:
+            msg: "Falló el reinicio del SO en {{ inventory_hostname }}. Revisar el log de la ejecución."

@@ -1,0 +1,24 @@
+# Prueba SOLO LECTURA: valida conexión, y estado de HANA. No detiene nada.
+# Ejecuta únicamente: cat <marca>, systemctl is-active pacemaker por si esta en cluster, ./HDB info y sapcontrol GetProcessList.
+- name: Chequeo de solo lectura de SAP HANA
+  hosts: "{{ target | default('hana') }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - ansible.builtin.include_role: { name: hana_ops, tasks_from: preflight }
+
+    - name: HDB info
+      ansible.builtin.debug:
+        msg: "{{ hana_pre_info.stdout_lines }}"
+
+    - name: sapcontrol GetProcessList
+      ansible.builtin.debug:
+        msg: "{{ hana_pre_status.stdout_lines }}"
+
+    - name: Resultado
+      ansible.builtin.debug:
+        msg: >-
+          OK: {{ inventory_hostname }} ({{ ansible_host }}) entorno {{ hana_env }},
+          SID {{ hana_sid }}/{{ hana_nr }}. GetProcessList rc={{ hana_pre_status.rc }}
+          (3 = todo corriendo, 4 = todo detenido).

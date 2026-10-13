@@ -1,0 +1,50 @@
+# Reinicio del SO sin el módulo reboot (no requiere Python en el servidor)
+# ESTADO: no probado en producción. Validar primero en TEST.
+- name: Leer boot_id actual
+  ansible.builtin.raw: cat /proc/sys/kernel/random/boot_id
+  register: boot_before
+  changed_when: false
+
+- name: Lanzar reinicio del sistema operativo
+  ansible.builtin.raw: >-
+    nohup sh -c 'sleep 5; systemctl reboot' </dev/null >/dev/null 2>&1 &
+  changed_when: true
+
+- name: Cerrar conexión SSH persistente
+  ansible.builtin.meta: reset_connection
+
+- name: Esperar a que el servidor deje de responder
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: stopped
+    timeout: "{{ os_shutdown_timeout }}"
+  delegate_to: localhost
+  become: false
+
+- name: Esperar a que SSH vuelva a responder
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: started
+    delay: 30
+    timeout: "{{ os_reboot_timeout }}"
+  delegate_to: localhost
+  become: false
+
+- name: Espera adicional post-boot
+  ansible.builtin.pause:
+    seconds: "{{ os_post_boot_delay }}"
+
+- name: Leer boot_id nuevo
+  ansible.builtin.raw: cat /proc/sys/kernel/random/boot_id
+  register: boot_after
+  changed_when: false
+  retries: 10
+  delay: 15
+  until: boot_after.rc == 0
+
+- name: Confirmar que el servidor efectivamente reinició
+  ansible.builtin.assert:
+    that: boot_after.stdout | trim != boot_before.stdout | trim
+    fail_msg: "El boot_id no cambió: el servidor no reinició."

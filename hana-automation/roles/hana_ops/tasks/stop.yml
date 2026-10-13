@@ -1,0 +1,40 @@
+# ============================================================
+#  BAJADA DE HANA - según procedimiento manual:
+#    su - <sid>adm  ->  ./HDB stop  ->  esperar  ->  ./HDB info
+#  NUNCA se usa "HDB kill": si no baja en el tiempo máximo, se aborta
+#  y se alerta para intervención manual.
+# ============================================================
+- name: Abortar si HANA no está completamente arriba antes de bajarla
+  ansible.builtin.assert:
+    that: hana_pre_status.rc == 3
+    fail_msg: >-
+      HANA no está en estado normal (GetProcessList rc={{ hana_pre_status.rc }}; 3 = todo GREEN).
+      No se baja una base en estado intermedio. Revisar a mano.
+
+- name: Bajar HANA (./HDB stop)
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'cd /usr/sap/{{ hana_sid }}/HDB{{ hana_nr }} && ./HDB stop < /dev/null'"
+  register: hana_stop
+  changed_when: true
+  failed_when: false
+
+- name: Esperar a que HANA quede completamente detenida (máx. {{ hana_stop_timeout }} s)
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'sapcontrol -nr {{ hana_nr }} -function WaitforStopped {{ hana_stop_timeout }} {{ hana_wait_delay }}'"
+  register: hana_wait_stop
+  changed_when: false
+  failed_when: hana_wait_stop.rc != 0   # rc 2 = timeout -> se aborta, sin kill
+
+- name: Confirmar procesos detenidos
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'sapcontrol -nr {{ hana_nr }} -function GetProcessList'"
+  register: hana_stopped
+  changed_when: false
+  failed_when: hana_stopped.rc != 4     # 4 = todos los procesos detenidos
+
+- name: Estado tras la bajada (./HDB info)
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'cd /usr/sap/{{ hana_sid }}/HDB{{ hana_nr }} && ./HDB info < /dev/null'"
+  register: hana_info_stopped
+  changed_when: false
+  failed_when: false
+
+- name: Registrar estado tras la bajada
+  ansible.builtin.debug:
+    msg: "{{ hana_info_stopped.stdout_lines }}"

@@ -1,0 +1,13 @@
+- name: Verificar que no haya backups en curso (todas las DBs)
+  ansible.builtin.raw: >-
+    su - {{ hana_sidadm }} -c "hdbsql -U {{ hana_userstore_key }} -j -a -x
+    \"SELECT COUNT(*) FROM SYS_DATABASES.M_BACKUP_CATALOG WHERE STATE_NAME = 'running'\""
+  register: backup_running
+  changed_when: false
+  failed_when: backup_running.rc != 0
+  until: >-
+    backup_running.rc == 0 and
+    (backup_running.stdout_lines | map('trim') | select('match', '^[0-9]+$') | first | default('999') | int) == 0
+  retries: "{{ hana_backup_retries }}"
+  delay: "{{ hana_backup_retry_delay }}"
+  when: hana_backup_check | bool

@@ -1,0 +1,33 @@
+#  Todas las tareas contra el servidor usan ansible.builtin.raw:
+#  NO se requiere Python en el servidor HANA, se realiza via ssh.
+
+# Tiempos en segundos (topes de seguridad: el playbook avanza apenas HANA termina de procesar los comandos)
+hana_stop_timeout: 1800        # máximo para que hana termine de bajar (30 min)
+hana_start_timeout: 2700       # máximo para que hana termine de levantar (45 min)
+hana_wait_delay: 10            # intervalo de chequeo de sapcontrol
+
+# Marca de entorno en el servidor
+hana_env_file: /etc/hana-env
+
+# Chequeo de backups en curso
+hana_backup_check: true
+hana_userstore_key: BACKUPCHECK   # CAMBIAR: clave hdbuserstore del <sid>adm apuntando a SYSTEMDB
+hana_backup_retries: 6            # reintentos si hay backup corriendo
+hana_backup_retry_delay: 300      # espera entre reintentos (6 x 5 min = 30 min)
+
+# Reinicio de SO (playbook mensual)
+os_shutdown_timeout: 900
+os_reboot_timeout: 1800
+os_post_boot_delay: 60
+sapstartsrv_retries: 60
+
+# Montajes a verificar tras el reinicio del SO
+hana_mounts: []
+
+# Notificación opcional por webhook propio (Semaphore nativamente ya puede alertar por Telegram)
+notify_webhook_url: ""
+
+# Guardas de seguridad: por defecto solo TEST.
+# PRD se habilita únicamente desde su propio inventario.
+hana_allowed_envs: ["TEST"]
+hana_allowed_hosts: ["192.0.2.10"]   # CAMBIAR: IP del HANA de test

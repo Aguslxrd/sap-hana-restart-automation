@@ -1,0 +1,3 @@
+# Común a TEST y PRD
+ansible_become: true
+ansible_ssh_use_tty: false   # sin terminal (ver docs/troubleshooting.md)

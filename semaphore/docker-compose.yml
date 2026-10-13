@@ -1,0 +1,90 @@
+name: semaphore
+# Semaphore UI + PostgreSQL + Caddy (HTTPS con CA interna)
+# Uso: docker compose up -d   (requiere .env generado con gen-env.sh)
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: semaphore
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: semaphore
+      TZ: ${TZ}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semaphore -d semaphore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  semaphore:
+    image: semaphoreui/semaphore:${SEMAPHORE_VERSION}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SEMAPHORE_DB_DIALECT: postgres
+      SEMAPHORE_DB_HOST: postgres
+      SEMAPHORE_DB_PORT: "5432"
+      SEMAPHORE_DB_USER: semaphore
+      SEMAPHORE_DB_PASS: ${DB_PASSWORD}
+      SEMAPHORE_DB: semaphore
+      SEMAPHORE_PLAYBOOK_PATH: /tmp/semaphore/
+      SEMAPHORE_ADMIN: ${ADMIN_USER}
+      SEMAPHORE_ADMIN_NAME: ${ADMIN_NAME}
+      SEMAPHORE_ADMIN_EMAIL: ${ADMIN_EMAIL}
+      SEMAPHORE_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: ${ACCESS_KEY_ENCRYPTION}
+      TZ: ${TZ}
+      SEMAPHORE_SCHEDULE_TIMEZONE: ${TZ}
+      # Las claves de host no se validan (ver docs/seguridad.md)
+      ANSIBLE_HOST_KEY_CHECKING: "False"
+      # Permite a Git leer el repositorio local montado en /repos
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: "*"
+      # Alertas a Telegram (opcional; valores en .env)
+      SEMAPHORE_TELEGRAM_ALERT: ${TELEGRAM_ALERT}
+      SEMAPHORE_TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
+      SEMAPHORE_TELEGRAM_CHAT: ${TELEGRAM_CHAT}
+    volumes:
+      - semaphore_data:/var/lib/semaphore
+      - semaphore_config:/etc/semaphore
+      - semaphore_tmp:/tmp/semaphore
+      - ./repos:/repos:ro
+    networks:
+      - backend
+      - frontend
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - semaphore
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - frontend
+
+networks:
+  backend:
+    internal: true      # PostgreSQL sin salida ni exposición fuera de Docker
+  frontend: {}
+
+volumes:
+  pgdata:
+  semaphore_data:
+  semaphore_config:
+  semaphore_tmp:
+  caddy_data:
+  caddy_config:

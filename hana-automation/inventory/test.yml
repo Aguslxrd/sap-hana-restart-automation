@@ -1,0 +1,16 @@
+# ============================================================
+#  INVENTARIO DE PRUEBAS - SOLO HANA TEST
+#  Usa las listas permitidas por defecto del rol (solo TEST).
+# ============================================================
+all:
+  children:
+    hana:
+      children:
+        hana_test:
+          hosts:
+            HANA-TEST:
+              ansible_host: 192.0.2.10          # CAMBIAR: IP del HANA de test
+              ansible_user: ansible-hana-test    # usuario exclusivo de TEST
+              hana_sid: NDB                     # CAMBIAR: SID
+              hana_nr: "00"                     # CAMBIAR: nro. de instancia (2 dígitos, entre comillas)
+              hana_env: TEST                    # debe coincidir con /etc/hana-env del servidor

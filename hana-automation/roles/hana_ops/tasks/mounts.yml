@@ -1,0 +1,16 @@
+# Verifica (y si falta, monta la unidad) los puntos definidos en hana_mounts.
+# Requiere que estén declarados en /etc/fstab del servidor.
+# En este escenario presentado era necesesario montar una unidad externa por un requerimiento del funcionamiento del propio sistema.
+- name: Montar si no está montado
+  ansible.builtin.raw: "findmnt -n {{ item }} >/dev/null || mount {{ item }}"
+  loop: "{{ hana_mounts }}"
+  register: mnt_try
+  changed_when: false
+  failed_when: false
+
+- name: Confirmar montajes
+  ansible.builtin.raw: "findmnt -n {{ item }}"
+  loop: "{{ hana_mounts }}"
+  register: mnt_check
+  changed_when: false
+  failed_when: mnt_check.rc != 0

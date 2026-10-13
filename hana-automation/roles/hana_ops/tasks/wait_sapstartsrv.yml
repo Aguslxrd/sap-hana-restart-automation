@@ -1,0 +1,13 @@
+- name: Esperar a que sapstartsrv responda tras el reinicio
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'sapcontrol -nr {{ hana_nr }} -function GetProcessList'"
+  register: sapstartsrv
+  changed_when: false
+  failed_when: false
+  until: sapstartsrv.rc in [0, 3, 4]
+  retries: "{{ sapstartsrv_retries }}"
+  delay: 10
+
+- name: Fallar si sapstartsrv no respondió
+  ansible.builtin.fail:
+    msg: "sapstartsrv no responde en {{ inventory_hostname }} tras el reinicio"
+  when: sapstartsrv.rc not in [0, 3, 4]

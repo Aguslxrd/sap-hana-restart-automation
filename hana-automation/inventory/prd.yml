@@ -1,0 +1,20 @@
+# ============================================================
+#  INVENTARIO PRODUCTIVO - SOLO HANA PRD
+#  Las listas permitidas se sobrescriben SOLO acá: el inventario
+#  de TEST sigue usando los valores por defecto (solo TEST).
+# ============================================================
+all:
+  children:
+    hana:
+      children:
+        hana_prd:
+          hosts:
+            HANA-PRD:
+              ansible_host: 198.51.100.10       # CAMBIAR: IP del HANA productivo
+              ansible_user: ansible-hana-prd     # usuario exclusivo de PRD
+              hana_sid: NDB                     # CAMBIAR
+              hana_nr: "00"                     # CAMBIAR
+              hana_env: PRD                     # debe coincidir con /etc/hana-env del servidor
+              hana_allowed_envs: ["PRD"]
+              hana_allowed_hosts: ["198.51.100.10"]
+              # hana_mounts: ["/mnt/backup"]    # solo para el reinicio del SO

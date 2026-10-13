@@ -1,0 +1,13 @@
+# Notificación opcional por webhook propio (independiente de las alertas de Semaphore)
+- name: Enviar notificación
+  ansible.builtin.uri:
+    url: "{{ notify_webhook_url }}"
+    method: POST
+    body_format: json
+    body:
+      text: "[{{ notify_status }}] {{ notify_job }} - {{ inventory_hostname }} ({{ hana_sid }}/{{ hana_nr }})"
+    status_code: [200, 202, 204]
+  delegate_to: localhost
+  become: false
+  when: notify_webhook_url | length > 0
+  failed_when: false

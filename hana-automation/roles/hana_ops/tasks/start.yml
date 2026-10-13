@@ -1,0 +1,39 @@
+# ============================================================
+#  SUBIDA DE HANA - según procedimiento manual:
+#    su - <sid>adm  ->  ./HDB start  ->  esperar  ->  ./HDB info
+# ============================================================
+- name: Estado antes de iniciar
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'sapcontrol -nr {{ hana_nr }} -function GetProcessList'"
+  register: hana_before_start
+  changed_when: false
+  failed_when: hana_before_start.rc not in [0, 3, 4]
+
+# rc 4 = todo detenido -> iniciar. rc 0 = arrancando (p.ej. Autostart) -> solo esperar.
+- name: Levantar HANA (./HDB start)
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'cd /usr/sap/{{ hana_sid }}/HDB{{ hana_nr }} && ./HDB start < /dev/null'"
+  register: hana_start
+  changed_when: true
+  failed_when: false        # el resultado real se valida en las tareas siguientes
+  when: hana_before_start.rc == 4
+
+- name: Esperar a que HANA quede operativa (máx. {{ hana_start_timeout }} s)
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'sapcontrol -nr {{ hana_nr }} -function WaitforStarted {{ hana_start_timeout }} {{ hana_wait_delay }}'"
+  register: hana_wait_start
+  changed_when: false
+  failed_when: hana_wait_start.rc != 0  # rc 2 = timeout
+
+- name: Confirmar todos los procesos en GREEN
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'sapcontrol -nr {{ hana_nr }} -function GetProcessList'"
+  register: hana_running
+  changed_when: false
+  failed_when: hana_running.rc != 3     # 3 = todos los procesos corriendo
+
+- name: Estado tras la subida (./HDB info)
+  ansible.builtin.raw: "su - {{ hana_sidadm }} -c 'cd /usr/sap/{{ hana_sid }}/HDB{{ hana_nr }} && ./HDB info < /dev/null'"
+  register: hana_info_started
+  changed_when: false
+  failed_when: false
+
+- name: Registrar estado tras la subida
+  ansible.builtin.debug:
+    msg: "{{ hana_info_started.stdout_lines }}"
