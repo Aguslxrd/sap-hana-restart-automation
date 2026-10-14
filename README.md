@@ -8,7 +8,7 @@ Pensado para entornos donde:
 - **TEST y PRD son clones** (mismo hostname, mismo SID, incluso mismas claves de host SSH) → la identidad del servidor se garantiza con **varias capas de control independientes**.
 - El procedimiento manual vigente es `su - <sid>adm` → `./HDB stop` / `./HDB start` / `./HDB info`, y la automatización lo replica sin atajos (nunca `HDB kill`).
 
-> Todos los valores de este repositorio son **ejemplos**: IPs de documentación (`192.0.2.0/24`, `198.51.100.0/24`), nombres genéricos y secretos vacíos. Reemplazarlos antes de usar.
+> Todos los valores de este repositorio son **ejemplos**: IPs de documentación (`192.0.2.0/24`, `198.51.100.0/24`), nombres genéricos y secrets vacíos. Reemplazarlos antes de usar.
 
 ---
 
